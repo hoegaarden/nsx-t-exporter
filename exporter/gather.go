@@ -252,6 +252,43 @@ func ipPoolHandler(data *Nsxv3Data, status *Nsxv3Resource) (string, error) {
 	return next, nil
 }
 
+func loadBalancerHandler(data *Nsxv3Data, status *Nsxv3Resource) (string, error) {
+	loadBalancers := status.state["results"].([]interface{})
+
+	next := noCursor
+	cursor := status.state["cursor"]
+
+	if cursor != nil {
+		next = cursor.(string)
+	}
+
+	for _, loadBalancer := range loadBalancers {
+		loadBalancerProperties := loadBalancer.(map[string]interface{})
+
+		loadBalancerData := new(Nsxv3LoadBalancer)
+		loadBalancerData.id = loadBalancerProperties["id"].(string)
+		loadBalancerData.name = loadBalancerProperties["display_name"].(string)
+		loadBalancerData.enabled = loadBalancerProperties["enabled"].(bool)
+		loadBalancerData.size = loadBalancerProperties["size"].(string)
+
+		/*	virtualServerCount := 0
+
+			virtualServers := loadBalancerProperties["virtual_server_ids"].([]interface{})
+			for _, virtualServer := range virtualServers {
+				log.Debug("%v:", virtualServer)
+				virtualServerCount += 1
+			}
+			loadBalancerData.count = virtualServerCount
+		*/
+
+		loadBalancerData.count = 1
+
+		data.LoadBalancers = append(data.LoadBalancers, *loadBalancerData)
+	}
+
+	return next, nil
+}
+
 func logicalSwitchAdminStateHander(data *Nsxv3Data, status *Nsxv3Resource) (string, error) {
 	lswitches := status.state["results"].([]interface{})
 
@@ -370,6 +407,14 @@ func getEndpointStatus(endpointStatusType Nsxv3ResourceKind, endpointHost string
 				URL:    &url.URL{Host: endpointHost, Path: "/api/v1/pools/ip-pools"},
 			},
 		}
+	case LoadBalancer:
+		return Nsxv3Resource{
+			kind: LoadBalancer,
+			request: &http.Request{
+				Method: "GET",
+				URL:    &url.URL{Host: endpointHost, Path: "/api/v1/loadbalancer/services"},
+			},
+		}
 	case LogicalSwitch:
 		return Nsxv3Resource{
 			kind: LogicalSwitch,
@@ -446,6 +491,8 @@ func handle(data *Nsxv3Data, status *Nsxv3Resource) (string, error) {
 		return managerNodeFirewallHandler(data, status)
 	case ManagerNodeFirewallSections:
 		return managerNodeFirewallSectionsHandler(data, status)
+	case LoadBalancer:
+		return loadBalancerHandler(data, status)
 	case IPPool:
 		return ipPoolHandler(data, status)
 	case LogicalSwitch:
@@ -523,6 +570,7 @@ func (e *Exporter) gather(data *Nsxv3Data) error {
 			getEndpointStatus(ManagementClusterNodes, ""),
 			getEndpointStatus(LogicalSwitchAdmin, ""),
 			getEndpointStatus(LogicalSwitch, ""),
+			getEndpointStatus(LoadBalancer, ""),
 			getEndpointStatus(IPPool, ""),
 			getEndpointStatus(TransportNode, ""),
 			getEndpointStatus(TransportNodes, ""),
