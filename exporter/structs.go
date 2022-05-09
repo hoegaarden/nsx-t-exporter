@@ -1,7 +1,7 @@
 package exporter
 
 import (
-	"github.com/4n3w/nsx-t-exporter/config"
+	"github.com/sapcc/nsx-t-exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
